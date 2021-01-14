@@ -20,6 +20,7 @@ class QnameComponent(ABC):
 
     """ A list of exceptions that can be thrown by the encode and decode methods"""
     exceptions: List[Type[Exception]]
+
     @classmethod
     @abstractmethod
     def generate(cls, **kwargs) -> str:

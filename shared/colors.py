@@ -15,8 +15,8 @@
 # See https://github.com/jonathaneunice/colors for original code
 
 import re
-from typing import Union, List
 from functools import partial
+from typing import Union, List
 
 # Supported colors
 FG_COLORS = {'none': None, 'black': 30, 'dk_red': 31, 'dk_green': 32, 'dk_yellow': 33, 'dk_blue': 34, 'dk_magenta': 35,

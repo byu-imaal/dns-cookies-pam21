@@ -1,9 +1,10 @@
+import json
 import os
 import string
 import subprocess
 from typing import Union, TextIO
+
 from tqdm import tqdm
-import json
 
 
 def get_num_lines(file: Union[str, TextIO]) -> int:

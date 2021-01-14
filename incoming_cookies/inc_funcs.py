@@ -43,7 +43,7 @@ def qip_freq(it):
 
     asn_info = ip_to_as_info(top_qips, True)
     qip2asn = {line.split("|")[1].strip(): line.split("|")[0].strip()
-                  for line in asn_info.split('\n') if len(line.split("|")) > 2}
+               for line in asn_info.split('\n') if len(line.split("|")) > 2}
     asn2og = defaultdict(set)
     for ip, asn in qip2asn.items():
         for og in res[ip]:

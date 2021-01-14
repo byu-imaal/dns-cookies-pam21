@@ -5,14 +5,14 @@ Can filter out by fields being a certain value, can write only specific fields,
 can limit a field to only unique entries. Output is a CSV or json lines
 """
 
+import argparse
 import json
+import re
 import sys
 from collections import OrderedDict
+from io import StringIO
 from typing import List, Callable, Tuple
 
-import argparse
-import re
-from io import StringIO
 from tqdm import tqdm
 
 LINE_NUM_KEY = "__line__"

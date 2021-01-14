@@ -1,13 +1,13 @@
 """Default QnameComponent extensions that are included in the base QueryParserGenerator class"""
 
-import random
-import string
-import socket
-import struct
-import time
 import base64
 import binascii
-from multiprocessing import Manager, Lock
+import random
+import socket
+import string
+import struct
+import time
+
 from shared.qpg_component_base import QnameComponent
 
 

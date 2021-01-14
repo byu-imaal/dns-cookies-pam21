@@ -1,9 +1,10 @@
 """QPG == (Q)name-(P)arser-(G)enerator"""
 
-from typing import List, Type
-from shared.qpg_defaults import *
-from shared.qpg_component_base import QnameComponent
 from collections import OrderedDict
+from typing import List, Type
+
+from shared.qpg_component_base import QnameComponent
+from shared.qpg_defaults import *
 
 
 class QPGException(BaseException):
@@ -135,4 +136,3 @@ class QnameParserGenerator:
 #         print(qname)
 #         parts = AnotherOne.parse(qname)
 #         print(parts)
-

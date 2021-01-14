@@ -71,6 +71,24 @@ def find_statics(it):
     print(f'#### {num_static} ####')
 
 
+def print_non_bind_statics(it):
+    domains = defaultdict(list)
+    for j in it:
+        for q in j['queries']:
+            if q['scook'] is not None and len(q['scook']) > 0 and not q['isbind']:
+                domains[j['ip'] + f" ({j['domain']})"].append(q['scook'])
+    total = 0
+    for d, cooks in domains.items():
+        if len(cooks) > 20 and len(Counter(cooks)) == 1:
+            total += 1
+            print(d)
+            for c, num in Counter(cooks).items():
+                if num > 1:
+                    print(f'\t{num}: {c}')
+            print('*' * 100)
+    print(f'#### {total} ####')
+
+
 def print_nonces(it):
     for j in it:
         print(f"\n{'*' * 50}\n{j['domain']} - {j['ip']}")
@@ -131,6 +149,7 @@ def ts_diff(it):
                 print(color(f'{diff}:{count}, ', fg=c_func(diff)), end='')
             print()
 
+
 def ts_stats(it):
     ip_sets = defaultdict(set)
     domain_sets = defaultdict(set)
@@ -160,7 +179,8 @@ def ts_stats(it):
                 domain_sets['some_off_in_ip'].add(ip)
         if all([i in ip_sets['all_accurate'] for i in ips.keys()]):
             domain_sets['all_accurate'].add(domain)
-        if not all([i in ip_sets['all_accurate'] for i in ips.keys()]) and any([i in ip_sets['all_accurate'] for i in ips.keys()]):
+        if not all([i in ip_sets['all_accurate'] for i in ips.keys()]) and any(
+                [i in ip_sets['all_accurate'] for i in ips.keys()]):
             print(domain)
             for i in ips.keys():
                 print(f'\t{i}: {i in ip_sets["all_accurate"]}')
@@ -172,7 +192,6 @@ def ts_stats(it):
     print(f'ips: {ip_counts}')
     print(f'domains: {domain_counts}')
     print(domain_sets['some_off_ip'])
-
 
 
 def _print_ts(ip: str, d: dict):
@@ -203,7 +222,8 @@ def print_mixed_ip(it):
         # (ignore 1st since it doesn't use new cookie)
         # also ensure we had at least 5 follow cookies
         combined = set(d['follow'] + d['none'] + d['repeat'])
-        if len(combined) < 10 and any([math.fabs(t) > 60 for t in combined]) and any([math.fabs(t) <= 5 for t in combined]):
+        if len(combined) < 10 and any([math.fabs(t) > 60 for t in combined]) and any(
+                [math.fabs(t) <= 5 for t in combined]):
             users += 1
             _print_ts(ip, d)
 
@@ -241,7 +261,6 @@ def print_slow_ts(it):
                 print()
 
     print(f'mixed ips: {users}')
-
 
 
 def classify_hold_impl(it):
@@ -304,12 +323,12 @@ def classify_no_hold(it):
                     d['repeat'][10:] == sorted(d['repeat'][10:], reverse=True) and
                     d['none'][:10] == sorted(d['none'][:10], reverse=True) and
                     d['none'][10:] == sorted(d['none'][10:], reverse=True)) or \
-                    (d['follow'][:10] == sorted(d['follow'][:10]) and
-                     d['follow'][10:] == sorted(d['follow'][10:]) and
-                     d['repeat'][:10] == sorted(d['repeat'][:10]) and
-                     d['repeat'][10:] == sorted(d['repeat'][10:]) and
-                     d['none'][:10] == sorted(d['none'][:10]) and
-                     d['none'][10:] == sorted(d['none'][10:])):
+                        (d['follow'][:10] == sorted(d['follow'][:10]) and
+                         d['follow'][10:] == sorted(d['follow'][10:]) and
+                         d['repeat'][:10] == sorted(d['repeat'][:10]) and
+                         d['repeat'][10:] == sorted(d['repeat'][10:]) and
+                         d['none'][:10] == sorted(d['none'][:10]) and
+                         d['none'][10:] == sorted(d['none'][10:])):
                     users += 1
                     _print_ts(ip, d)
     print(f'users: {users}')

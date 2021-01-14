@@ -9,13 +9,8 @@ Tools include:
 
 The most useful function in here is most likely `ip_to_as_info`.
 """
-import re
 import socket
-import sys
-import subprocess
 from typing import Union, List
-
-import dns.resolver
 
 
 def ip_to_as_info(data: Union[str, List[str]], verbose: bool = False) -> str:
@@ -71,7 +66,7 @@ def ip_to_as_info(data: Union[str, List[str]], verbose: bool = False) -> str:
     if isinstance(data, list):
         full_res = ""
         for i in range(0, len(data), 5000):
-            request = f"begin\n" + v_flag + '\n'.join(data[i:i+5000]) + '\nend\n'
+            request = f"begin\n" + v_flag + '\n'.join(data[i:i + 5000]) + '\nend\n'
             full_res += _ip_to_as_sender(request)
         return full_res
     else:
