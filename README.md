@@ -1,10 +1,11 @@
 <p align="center">
  <a href="https://imaal.byu.edu">
-  <img src="https://avatars0.githubusercontent.com/u/25964963?s=400&u=c9cae591f5520ec4df753cca0d3f30bab163f00b&v=4" width="25%">
+  <img src="https://avatars0.githubusercontent.com/u/25964963?s=400&u=c9cae591f5520ec4df753cca0d3f30bab163f00b&v=4" width="20%">
  </a>
- <br>
- <h3 style="text-align:center;">Source code for PAM 2021 Paper - <i> A Peek Into the DNS Cookie Jar: An Analysis of DNS Cookie Use </i></h3>
 </p>
+<h3 align="center">
+  Source code for PAM 2021 Paper:<br><i>A Peek Into the DNS Cookie Jar: An Analysis of DNS Cookie Use</i>
+</h3>
 
 ---
 
