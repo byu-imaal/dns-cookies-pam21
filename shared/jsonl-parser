@@ -1,0 +1,237 @@
+#!/usr/bin/env python3
+"""
+Parses any json lines file (1 obj per line. See - http://jsonlines.org/).
+Can filter out by fields being a certain value, can write only specific fields,
+can limit a field to only unique entries. Output is a CSV or json lines
+"""
+
+import json
+import sys
+from collections import OrderedDict
+from typing import List, Callable, Tuple
+
+import argparse
+import re
+from io import StringIO
+from tqdm import tqdm
+
+LINE_NUM_KEY = "__line__"
+VERSION = "1.3"
+__QUERY_REGEX = re.compile('(^[^{]+)|([^}]+$)')
+
+
+def query_strip(line: str) -> str:
+    """ Removes any leading/trailing characters around the json of a line """
+    return __QUERY_REGEX.sub('', line)
+
+
+def check_arg_keys(keys: List[str], user_args: List[str], arg_name: str = "") -> None:
+    """
+    Ensure each argument is valid. If not, prints error and exits
+
+    :param keys: the valid keys to be used
+    :param user_args: the arguments from argparse
+    :param arg_name: the name of the argparse argument which will be shown in the error
+    """
+    for arg in user_args:
+        if all([False for k in keys if k in arg]):
+            print("Error for {} argument: Invalid choice \'{}\'".format(arg_name, arg), file=sys.stderr)
+            print("\tValid choices: {}".format(['{}'.format(k) for k in keys]), file=sys.stderr)
+            exit(1)
+
+
+def parse_filter(f_str: str, keys: List[str], filter_none: bool = False) -> Tuple[Callable[[], bool], str]:
+    """
+    Prepares the filter created by the user for use with eval()
+
+    :param f_str: the filter created by the user
+    :param keys: the json keys
+    :param filter_none: If true will automatically add a filter so if any variable in f_str is None the result is false
+    :return: a tuple. The first element is a lambda function that returns a boolean based off the filter.
+             This is greatly faster than calling eval repeatedly in a loop. The second element is the completed f_str
+    """
+    # short-circuit if no filter applied by user
+    if f_str == "":
+        return lambda: True, ""
+    none_filter = ""
+    for k in keys:
+        # replace any instance of a key with the dictionary access syntax
+        # can start/end with any number of quotes (since keys with spaces may be quoted)
+        # to replace must start/end with either the beginning/end of line or with a non-word, non-hyphen character
+        f_str, rep_count = re.subn(r'[\'\"]*(?:(?<=^)|(?<=[^\w-])){}(?=$|[^\w-])[\'\"]*'.format(re.escape(k)),
+                                   "json_line[\'{}\']".format(k), f_str)
+        # if a replacement was made, add this variable to the none_filter
+        if rep_count > 0:
+            none_filter = none_filter + "json_line[\'{}\'] is not None and ".format(k)
+    f_str = f_str.replace('null', 'None')
+
+    if filter_none:
+        f_str = "{}({})".format(none_filter, f_str)
+    return lambda: eval(f_str), f_str
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Parses arbitrary json lines files (1 obj per line). "
+                                                 "Can filter and write specific fields. Valid fields are defined "
+                                                 "by the keys found in the first line of the input")
+    parser.add_argument('-V', '--version', action='version', version='%(prog)s v{}'.format(VERSION))
+
+    parser.add_argument('input', help="Input file in json-lines format", type=argparse.FileType('r'))
+
+    # not required here, but enforced below. This is since we implicitly set -o if -w is present
+    root_group = parser.add_argument_group("root arguments", "Exactly one of these must be set")
+    root_group.add_argument('-k', '--keys', help="prints the available keys and subkeys from the first line",
+                            action='store_true')
+    root_group.add_argument('-c', '--count', help="Print the count of lines matching the given filter",
+                            action='store_true')
+    root_group.add_argument('-o', '--output', help="File to write to. Leave blank for stdout",
+                            type=str, nargs='?', const='stdout')
+
+    filter_group = parser.add_argument_group("filter arguments", "These arguments can be used to filter the data or "
+                                                                 "manipulate the set filters")
+    filter_group.add_argument('-f', '--filter', nargs='+',
+                              help="A python string that evals to a bool. Surround in quotes if dealing with strings. "
+                                   "Reference json keys as they appear in the '--keys' option", default=[])
+    filter_group.add_argument('-u', '--unique', help="Specifies that the field can only include each value once",
+                              type=str, default="")
+    filter_group.add_argument('-i', '--ignore-case', help="Modify everything to lower case for filtering/unique",
+                              action='store_true')
+    filter_group.add_argument('-n', '--none-filter', help="Adds None checks to the existing filter. If any variable "
+                                                          "in the filter is None returns false", action='store_true')
+
+    output_group = parser.add_argument_group("output arguments", "These arguments change the output format.")
+    output_group.add_argument('-w', '--write', nargs="*", help="A list of json fields to be written. "
+                                                               "Also sets output to stdout if not specified",
+                              default=[])
+    formatting = output_group.add_mutually_exclusive_group()
+    formatting.add_argument('-j', '--json', help="Make output json lines (1 obj per line) instead of a csv",
+                            action='store_true')
+    formatting.add_argument('--csv-header', help="print csv header with keys names", action='store_true')
+
+    parser.add_argument('--no-line-count', help="Removes `__line__` variable in the weird case it conflicts with keys",
+                        action='store_true')
+
+    args = parser.parse_args()
+
+    # If output is not set, but write is, set output to its default of stdout
+    if args.output is None and len(args.write) > 0:
+        args.output = "stdout"
+        print("Setting output to stdout. Specify with '-o/--output' if desired\n", file=sys.stderr)
+
+    # require that exactly one of the root_group args are set
+    if sum([args.keys, args.count, args.output is not None]) != 1:
+        parser.error("Exactly one of the arguments -k/--keys -c/--count -o/--output is required")
+
+    # reading first line and collecting keys
+    first_line = args.input.readline()
+    args.input.seek(0)
+    need_strip = not first_line.startswith("{")
+    first_line_json = json.loads(query_strip(first_line) if need_strip else first_line, object_pairs_hook=OrderedDict)
+    top_level_keys = list(first_line_json.keys())
+
+    # if keys are set, recursively print keys from first line and exit
+    if args.keys:
+        def print_keys(entry: dict, depth: int) -> None:
+            """ recursive function for printing nested keys in dict """
+            for k, v in entry.items():
+                print(('  ' * depth) + k)
+                if isinstance(v, dict):
+                    print_keys(entry[k], depth + 1)
+
+
+        print("Available keys (in first line):")
+        print_keys(first_line_json, 1)
+        exit(0)
+
+    # handle small chance that the line key is already in the json and will collide
+    if LINE_NUM_KEY in top_level_keys and not args.no_line_count:
+        print(f"The file has a json key: {LINE_NUM_KEY} which is used as a keyword by this script", file=sys.stderr)
+        print("Run again with `--no-line-count` to avoid this error", file=sys.stderr)
+        exit(4)
+    if not args.no_line_count:
+        top_level_keys.append(LINE_NUM_KEY)
+
+    # check write and unique args set correctly
+    output_fields = args.write
+    if args.output is not None and len(output_fields) == 0:
+        output_fields = [k for k in top_level_keys if k != LINE_NUM_KEY]
+        print("Setting write flag to all keys. Specify with '-w/--write' if desired\n", file=sys.stderr)
+    check_arg_keys(top_level_keys, args.write, "write")
+    if args.unique != "":
+        check_arg_keys(top_level_keys, [args.unique], "unique")
+    unique = args.unique
+    unique_names_used = set()
+    unique_set = (unique != "")
+
+    # create the filter
+    filter_func, filter_str = parse_filter(' '.join(args.filter), top_level_keys, args.none_filter)
+
+    # create output and write headers
+    output = None
+    if args.output is not None:
+        try:
+            if args.output == "stdout":
+                output = StringIO()  # buffer stdout to not interfere with progress bar
+            else:
+                output = open(args.output, 'w')
+        except Exception as e:
+            print('Error with output file: {}'.format(e), file=sys.stderr)
+            exit(1)
+
+        if args.csv_header:
+            for i, field in enumerate(output_fields):
+                if i > 0:
+                    output.write(", ")
+                output.write(field)
+            output.write('\n')
+
+    lines_written = 0
+    num_lines = sum(1 for line in args.input)
+    args.input.seek(0)
+
+    # process input and write to output
+    for i, line in enumerate(tqdm(args.input, total=num_lines)):
+        json_line = json.loads(query_strip(line) if need_strip else line)
+        # add line number as variable
+        if not args.no_line_count:
+            json_line[LINE_NUM_KEY] = i + 1
+        if args.ignore_case:
+            json_line = {k: v.lower() if isinstance(v, str) else v for k, v in json_line.items()}
+        try:
+            passes_filters = filter_func()
+        except Exception as e:
+            passes_filters = False
+            print("Error with filter:  {}".format(e), file=sys.stderr)
+            print("\tExpanded filter:  {}".format(filter_str), file=sys.stderr)
+            print("\tLine from input:  {}".format(line.strip()), file=sys.stderr)
+            if "NoneType" in str(e):
+                print("\nAdd the '-n' argument to handle NoneTypes automatically", file=sys.stderr)
+            exit(2)
+
+        if unique_set and (json_line[unique] is None or json_line[unique] in unique_names_used):
+            passes_filters = False
+        if passes_filters:
+            lines_written += 1
+            if unique_set:
+                unique_names_used.add(json_line[unique])
+            if output is not None:
+                if args.json:
+                    output.write(json.dumps(OrderedDict([(key, json_line[key]) for key in output_fields])))
+                else:
+                    for j, field in enumerate(output_fields):
+                        if j > 0:
+                            output.write(", ")
+                        output.write(str(json_line[field] if json_line[field] is not None else "null"))
+
+                output.write("\n")
+
+    if type(output) == StringIO:
+        print(output.getvalue())
+    if output is not None:
+        output.close()
+
+    if args.count:
+        print()
+        print("Input lines:\t{}".format(num_lines))
+        print("Filtered lines:\t{}".format(lines_written))
+        print("Percentage:\t{:.3f}%".format(100.0 * (lines_written / num_lines)))

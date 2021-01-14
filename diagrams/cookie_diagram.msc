@@ -1,0 +1,21 @@
+# Generation for figure in background section showing overview of cookie protocol
+# using msc-gen: http://msc-generator.sourceforge.net/help/6.3/msc-gen.pdf
+# example command:
+# msc-gen -T pdf -o out.pdf -i cookie_diagram.msc && pdfcrop --margins '0 0 -43 -20' out.pdf out.pdf
+
+text.font.type=small;
+text.font.face=UbuntuMono;
+hscale=3;
+compress=yes;
+
+C: \bClient;
+S: \bServer;
+
+C->S: query + \bclient_cookie\b(abc...);
+S->C: response + \bclient_cookie\b(abc...) + \bserver_cookie\b(123...);
+box C--C: Verify Client\nCookie Matches;
+---;
+C->S: query + \bclient_cookie\b(abc...) + \bserver_cookie\b(123...);
+box S--S: Verify Server\nCookie Matches;
+S->C: response + \bclient_cookie\b(abc...) + \bserver_cookie\b(\i456...\i);
+...;
