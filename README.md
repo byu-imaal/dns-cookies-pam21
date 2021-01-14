@@ -7,4 +7,4 @@
 * `shared` is a private package used in our lab and is imported throughout the code. All necessary files are included in the `shared` directory.
 * We've replaced our authoritative server SLD with `example.com` in all instances where it is used
 * This code is provided as-is and for reference. It may take some effort to run it (replacing imports, configuring servers, etc.)
-  * Feel free to reach out if any aspects of the code/setup are unclear.
+  * If any aspects of the code/setup are unclear feel free to reach out via contact information in the paper.
